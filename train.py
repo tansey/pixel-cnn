@@ -89,9 +89,7 @@ obs_shape = train_data.get_observation_size()  # e.g. a tuple (32,32,3)
 assert len(obs_shape) == 3, 'assumed right now'
 
 # data place holders
-x_init = tf.placeholder(tf.float32, shape=(args.init_batch_size,) + obs_shape)
-xs = [tf.placeholder(tf.float32, shape=(args.batch_size, ) + obs_shape)
-      for i in range(args.nr_gpu)]
+x1 = tf.placeholder(tf.float32, shape=(args.batch_size,) + obs_shape)
 
 # if the model is class-conditional we'll set up label placeholders +
 # one-hot encodings 'h' to condition on
@@ -117,22 +115,15 @@ model_opt = {'nr_resnet': args.nr_resnet, 'nr_filters': args.nr_filters,
 model = tf.make_template('model', model_spec)
 
 # run once for data dependent initialization of parameters
-gen_par, nin_in = model(x_init, h_init, init=True,
-                dropout_p=args.dropout_p, **model_opt)
-
-# keep track of moving average
-all_params = tf.trainable_variables()
-ema = tf.train.ExponentialMovingAverage(decay=args.polyak_decay)
-maintain_averages_op = tf.group(ema.apply(all_params))
+gen_par, nin_in = model(x1, h_init, init=False,
+                dropout_p=0, **model_opt)
 
 # init & save
 initializer = tf.global_variables_initializer()
 saver = tf.train.Saver()
 
 # turn numpy inputs into feed_dict for use with tensorflow
-
-
-def make_feed_dict(data, init=False):
+def make_feed_dict(data):
     if type(data) is tuple:
         x, y = data
     else:
@@ -140,16 +131,10 @@ def make_feed_dict(data, init=False):
         y = None
     # input to pixelCNN is scaled from uint8 [0,255] to float in range [-1,1]
     x = np.cast[np.float32]((x - 127.5) / 127.5)
-    if init:
-        feed_dict = {x_init: x}
-        if y is not None:
-            feed_dict.update({y_init: y})
-    else:
-        x = np.split(x, args.nr_gpu)
-        feed_dict = {xs[i]: x[i] for i in range(args.nr_gpu)}
-        if y is not None:
-            y = np.split(y, args.nr_gpu)
-            feed_dict.update({ys[i]: y[i] for i in range(args.nr_gpu)})
+    feed_dict = {x1: x}
+    # if y is not None:
+    #     y = np.split(y, args.nr_gpu)
+    #     feed_dict.update({ys[i]: y[i] for i in range(args.nr_gpu)})
     return feed_dict
 
 # //////////// perform training //////////////
@@ -159,12 +144,12 @@ print('starting training')
 test_bpd = []
 lr = args.learning_rate
 with tf.Session() as sess:
-    # manually retrieve exactly init_batch_size examples
-    feed_dict = make_feed_dict(
-        train_data.next(args.init_batch_size), init=True)
-    train_data.reset()  # rewind the iterator back to 0 to do one full epoch
-    sess.run(initializer, feed_dict)
-    print('initializing the model...')
+    # # manually retrieve exactly init_batch_size examples
+    # feed_dict = make_feed_dict(
+    #     train_data.next(args.init_batch_size), init=True)
+    # train_data.reset()  # rewind the iterator back to 0 to do one full epoch
+    # sess.run(initializer, feed_dict)
+    # print('initializing the model...')
     if args.load_params:
         ckpt_file = args.save_dir + '/params_' + args.data_set + '.ckpt'
         print('restoring parameters from', ckpt_file)
@@ -175,11 +160,6 @@ with tf.Session() as sess:
     with open('data/train_features.csv', 'wb') as outf:
         for d in train_data:
             feed_dict = make_feed_dict(d)
-            # forward/backward/update model on each gpu
-            # lr *= args.lr_decay
-            # feed_dict.update({tf_lr: lr})
-            # l, _ = sess.run([bits_per_dim, optimizer], feed_dict)
-            # train_losses.append(l)
             features = sess.run(nin_in, feed_dict)
             print('Train Features:', features.shape)
             outf.write(' '.join([str(z) for z in features.shape]))
