@@ -113,7 +113,7 @@ else:
 # create the model
 model_opt = {'nr_resnet': args.nr_resnet, 'nr_filters': args.nr_filters,
              'nr_logistic_mix': args.nr_logistic_mix, 'resnet_nonlinearity': args.resnet_nonlinearity}
-model, nin_in = tf.make_template('model', model_spec)
+model = tf.make_template('model', model_spec)
 
 # run once for data dependent initialization of parameters
 gen_par = model(x_init, h_init, init=True,
@@ -123,60 +123,6 @@ gen_par = model(x_init, h_init, init=True,
 all_params = tf.trainable_variables()
 ema = tf.train.ExponentialMovingAverage(decay=args.polyak_decay)
 maintain_averages_op = tf.group(ema.apply(all_params))
-
-# get loss gradients over multiple GPUs
-grads = []
-loss_gen = []
-loss_gen_test = []
-for i in range(args.nr_gpu):
-    with tf.device('/gpu:%d' % i):
-        # train
-        gen_par = model(xs[i], hs[i], ema=None,
-                        dropout_p=args.dropout_p, **model_opt)
-        loss_gen.append(nn.discretized_mix_logistic_loss(xs[i], gen_par))
-        # gradients
-        grads.append(tf.gradients(loss_gen[i], all_params))
-        # test
-        gen_par = model(xs[i], hs[i], ema=ema, dropout_p=0., **model_opt)
-        loss_gen_test.append(nn.discretized_mix_logistic_loss(xs[i], gen_par))
-
-# add losses and gradients together and get training updates
-tf_lr = tf.placeholder(tf.float32, shape=[])
-with tf.device('/gpu:0'):
-    for i in range(1, args.nr_gpu):
-        loss_gen[0] += loss_gen[i]
-        loss_gen_test[0] += loss_gen_test[i]
-        for j in range(len(grads[0])):
-            grads[0][j] += grads[i][j]
-    # training op
-    optimizer = tf.group(nn.adam_updates(
-        all_params, grads[0], lr=tf_lr, mom1=0.95, mom2=0.9995), maintain_averages_op)
-
-# convert loss to bits/dim
-bits_per_dim = loss_gen[
-    0] / (args.nr_gpu * np.log(2.) * np.prod(obs_shape) * args.batch_size)
-bits_per_dim_test = loss_gen_test[
-    0] / (args.nr_gpu * np.log(2.) * np.prod(obs_shape) * args.batch_size)
-
-# sample from the model
-new_x_gen = []
-for i in range(args.nr_gpu):
-    with tf.device('/gpu:%d' % i):
-        gen_par = model(xs[i], h_sample[i], ema=ema, dropout_p=0, **model_opt)
-        new_x_gen.append(nn.sample_from_discretized_mix_logistic(
-            gen_par, args.nr_logistic_mix))
-
-
-def sample_from_model(sess):
-    x_gen = [np.zeros((args.batch_size,) + obs_shape, dtype=np.float32)
-             for i in range(args.nr_gpu)]
-    for yi in range(obs_shape[0]):
-        for xi in range(obs_shape[1]):
-            new_x_gen_np = sess.run(
-                new_x_gen, {xs[i]: x_gen[i] for i in range(args.nr_gpu)})
-            for i in range(args.nr_gpu):
-                x_gen[i][:, yi, xi, :] = new_x_gen_np[i][:, yi, xi, :]
-    return np.concatenate(x_gen, axis=0)
 
 # init & save
 initializer = tf.global_variables_initializer()
