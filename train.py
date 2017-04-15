@@ -157,19 +157,19 @@ with tf.Session() as sess:
     else:
         raise Exception('this is a specialized version that only outputs the feature vectors.')
 
-    with open('data/train_features.csv', 'wb') as outf:
-        for d in train_data:
-            feed_dict = make_feed_dict(d)
-            features = sess.run(nin_in, feed_dict)
-            print('Train Features:', features.shape)
-            outf.write(' '.join([str(z) for z in features.shape]))
-            break
+    for i,d in enumerate(train_data):
+        feed_dict = make_feed_dict(d)
+        features = sess.run(nin_in, feed_dict)
+        print(i, 'Train Features:', features.shape)
+        # outf.write(' '.join([str(z) for z in features.shape]))
+        np.save('data/train_features_{}'.format(i), features)
+        break
 
-    with open('data/test_features.csv', 'wb') as outf:
-        for d in test_data:
-            feed_dict = make_feed_dict(d)
-            features = sess.run(nin_in, feed_dict)
-            print('Test features:', features.shape)
-            outf.write(' '.join([str(z) for z in features.shape]))
-            break
+    for i,d in enumerate(test_data):
+        feed_dict = make_feed_dict(d)
+        features = sess.run(nin_in, feed_dict)
+        print(i, 'Test features:', features.shape)
+        # outf.write(' '.join([str(z) for z in features.shape]))
+        np.save('data/test_features_{}'.format(i), features)
+        break
 
