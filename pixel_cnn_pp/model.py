@@ -101,6 +101,7 @@ def model_spec(x, h=None, init=False, ema=None, dropout_p=0.5, nr_resnet=5, nr_f
                     [u, ul_list.pop()], 3), conv=nn.down_right_shifted_conv2d)
 
             nin_in = tf.nn.elu(ul)
+            print(nin_in)
             print('nin_shape: ', tf.get_shape(nin_in))
             x_out = nn.nin(nin_in, 10 * nr_logistic_mix)
 
