@@ -160,15 +160,17 @@ with tf.Session() as sess:
     for i,d in enumerate(train_data):
         feed_dict = make_feed_dict(d)
         features = sess.run(nin_in, feed_dict)
-        print(i, 'Train Features:', features.shape)
+        print(i, 'Train Features:', features.shape, 'Train Images:', d.shape)
         # outf.write(' '.join([str(z) for z in features.shape]))
         np.save('data/train_features_{}'.format(i), features)
+        np.save('data/train_pixels_{}'.format(i), d)
 
     for i,d in enumerate(test_data):
         feed_dict = make_feed_dict(d)
         features = sess.run(nin_in, feed_dict)
-        print(i, 'Test features:', features.shape)
+        print(i, 'Test features:', features.shape, 'Test images:', d.shape)
         # outf.write(' '.join([str(z) for z in features.shape]))
         np.save('data/test_features_{}'.format(i), features)
+        np.save('data/test_pixels_{}'.format(i), d)
     print('Done!')
 
