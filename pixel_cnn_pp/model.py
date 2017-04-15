@@ -100,9 +100,11 @@ def model_spec(x, h=None, init=False, ema=None, dropout_p=0.5, nr_resnet=5, nr_f
                 ul = nn.gated_resnet(ul, tf.concat(
                     [u, ul_list.pop()], 3), conv=nn.down_right_shifted_conv2d)
 
-            x_out = nn.nin(tf.nn.elu(ul), 10 * nr_logistic_mix)
+            nin_in = tf.nn.elu(ul)
+            print('nin_shape: ', tf.get_shape(nin_in))
+            x_out = nn.nin(nin_in, 10 * nr_logistic_mix)
 
             assert len(u_list) == 0
             assert len(ul_list) == 0
 
-            return x_out
+            return x_out, nin_in

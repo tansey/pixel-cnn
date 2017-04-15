@@ -113,7 +113,7 @@ else:
 # create the model
 model_opt = {'nr_resnet': args.nr_resnet, 'nr_filters': args.nr_filters,
              'nr_logistic_mix': args.nr_logistic_mix, 'resnet_nonlinearity': args.resnet_nonlinearity}
-model = tf.make_template('model', model_spec)
+model, nin_in = tf.make_template('model', model_spec)
 
 # run once for data dependent initialization of parameters
 gen_par = model(x_init, h_init, init=True,
@@ -212,60 +212,32 @@ print('starting training')
 test_bpd = []
 lr = args.learning_rate
 with tf.Session() as sess:
-    for epoch in range(args.max_epochs):
-        begin = time.time()
+    # manually retrieve exactly init_batch_size examples
+    feed_dict = make_feed_dict(
+        train_data.next(args.init_batch_size), init=True)
+    train_data.reset()  # rewind the iterator back to 0 to do one full epoch
+    sess.run(initializer, feed_dict)
+    print('initializing the model...')
+    if args.load_params:
+        ckpt_file = args.save_dir + '/params_' + args.data_set + '.ckpt'
+        print('restoring parameters from', ckpt_file)
+        saver.restore(sess, ckpt_file)
+    else:
+        raise Exception('this is a specialized version that only outputs the feature vectors.')
 
-        # init
-        if epoch == 0:
-            # manually retrieve exactly init_batch_size examples
-            feed_dict = make_feed_dict(
-                train_data.next(args.init_batch_size), init=True)
-            train_data.reset()  # rewind the iterator back to 0 to do one full epoch
-            sess.run(initializer, feed_dict)
-            print('initializing the model...')
-            if args.load_params:
-                ckpt_file = args.save_dir + '/params_' + args.data_set + '.ckpt'
-                print('restoring parameters from', ckpt_file)
-                saver.restore(sess, ckpt_file)
-
-        # train for one epoch
-        train_losses = []
+    with open('data/train_features.csv', 'wb') as outf:
         for d in train_data:
             feed_dict = make_feed_dict(d)
             # forward/backward/update model on each gpu
             lr *= args.lr_decay
             feed_dict.update({tf_lr: lr})
-            l, _ = sess.run([bits_per_dim, optimizer], feed_dict)
-            train_losses.append(l)
-        train_loss_gen = np.mean(train_losses)
+            # l, _ = sess.run([bits_per_dim, optimizer], feed_dict)
+            # train_losses.append(l)
+            features = sess.run(nin_in, feed_dict)
+            print('Train Features:', features.shape)
 
-        # compute likelihood over test data
-        test_losses = []
+    with open('data/test_features.csv', 'wb') as outf:
         for d in test_data:
             feed_dict = make_feed_dict(d)
-            l = sess.run(bits_per_dim_test, feed_dict)
-            test_losses.append(l)
-        test_loss_gen = np.mean(test_losses)
-        test_bpd.append(test_loss_gen)
-
-        # log progress to console
-        print("Iteration %d, time = %ds, train bits_per_dim = %.4f, test bits_per_dim = %.4f" % (
-            epoch, time.time() - begin, train_loss_gen, test_loss_gen))
-        sys.stdout.flush()
-
-        if epoch % args.save_interval == 0:
-
-            # generate samples from the model
-            sample_x = sample_from_model(sess)
-            img_tile = plotting.img_tile(sample_x[:int(np.floor(np.sqrt(
-                args.batch_size * args.nr_gpu))**2)], aspect_ratio=1.0, border_color=1.0, stretch=True)
-            img = plotting.plot_img(img_tile, title=args.data_set + ' samples')
-            plotting.plt.savefig(os.path.join(
-                args.save_dir, '%s_sample%d.png' % (args.data_set, epoch)))
-            plotting.plt.close('all')
-
-            # save params
-            saver.save(sess, args.save_dir + '/params_' +
-                       args.data_set + '.ckpt')
-            np.savez(args.save_dir + '/test_bpd_' + args.data_set +
-                     '.npz', test_bpd=np.array(test_bpd))
+            features = sess.run(nin_in, feed_dict)
+            print('Test features:', features.shape)
