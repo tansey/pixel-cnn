@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Trains a Pixel-CNN++ generative model on CIFAR-10 or Tiny ImageNet data.
 Uses multiple GPUs, indicated by the flag --nr-gpu
@@ -181,9 +182,14 @@ with tf.Session() as sess:
             # train_losses.append(l)
             features = sess.run(nin_in, feed_dict)
             print('Train Features:', features.shape)
+            outf.write(' '.join([str(z) for z in features.shape]))
+            break
 
     with open('data/test_features.csv', 'wb') as outf:
         for d in test_data:
             feed_dict = make_feed_dict(d)
             features = sess.run(nin_in, feed_dict)
             print('Test features:', features.shape)
+            outf.write(' '.join([str(z) for z in features.shape]))
+            break
+
