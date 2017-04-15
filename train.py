@@ -163,8 +163,6 @@ with tf.Session() as sess:
         print(i, 'Train Features:', features.shape)
         # outf.write(' '.join([str(z) for z in features.shape]))
         np.save('data/train_features_{}'.format(i), features)
-        print(features)
-        break
 
     for i,d in enumerate(test_data):
         feed_dict = make_feed_dict(d)
@@ -172,6 +170,5 @@ with tf.Session() as sess:
         print(i, 'Test features:', features.shape)
         # outf.write(' '.join([str(z) for z in features.shape]))
         np.save('data/test_features_{}'.format(i), features)
-        break
     print('Done!')
 
