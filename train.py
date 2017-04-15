@@ -172,4 +172,5 @@ with tf.Session() as sess:
         # outf.write(' '.join([str(z) for z in features.shape]))
         np.save('data/test_features_{}'.format(i), features)
         break
+    print('Done!')
 
