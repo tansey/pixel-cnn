@@ -163,7 +163,7 @@ with tf.Session() as sess:
         print(i, 'Train Features:', features.shape)
         # outf.write(' '.join([str(z) for z in features.shape]))
         np.save('data/train_features_{}'.format(i), features)
-        print features
+        print(features)
         break
 
     for i,d in enumerate(test_data):
