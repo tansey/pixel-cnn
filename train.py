@@ -176,8 +176,8 @@ with tf.Session() as sess:
         for d in train_data:
             feed_dict = make_feed_dict(d)
             # forward/backward/update model on each gpu
-            lr *= args.lr_decay
-            feed_dict.update({tf_lr: lr})
+            # lr *= args.lr_decay
+            # feed_dict.update({tf_lr: lr})
             # l, _ = sess.run([bits_per_dim, optimizer], feed_dict)
             # train_losses.append(l)
             features = sess.run(nin_in, feed_dict)
