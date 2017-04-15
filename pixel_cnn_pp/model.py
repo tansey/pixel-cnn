@@ -102,7 +102,7 @@ def model_spec(x, h=None, init=False, ema=None, dropout_p=0.5, nr_resnet=5, nr_f
 
             nin_in = tf.nn.elu(ul)
             print(nin_in)
-            print('nin_shape: ', tf.get_shape(nin_in))
+            print('nin_shape: ', nin_in.get_shape())
             x_out = nn.nin(nin_in, 10 * nr_logistic_mix)
 
             assert len(u_list) == 0
